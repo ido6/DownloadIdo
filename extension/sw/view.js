@@ -65,7 +65,10 @@ export async function viewTarget(info, tab) {
 const pendingFetches = new Map();
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (!msg || msg.type !== 'view-fetch' || !msg.url) return false;
+  if (!msg || msg.type !== 'view-fetch' || typeof msg.token !== 'string') return false;
+  // Only our viewer tab may ask, and only for the picture this worker stored and checked for
+  // it: the URL and Referer come from session storage, never from the message.
+  if (sender.id !== chrome.runtime.id || !(sender.url || '').startsWith(chrome.runtime.getURL('viewer/viewer.html'))) return false;
   const token = `vf${Math.random().toString(36).slice(2, 8)}`;
   let settled = false;
   const finish = (result) => {
@@ -75,7 +78,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     try { sendResponse(result); } catch { /* the viewer tab went away */ }
   };
   pendingFetches.set(token, finish);
-  startOffscreenJob({ type: 'viewfetch', url: msg.url, pageUrl: msg.referer || '', token })
+  const key = VIEW_KEY_PREFIX + msg.token;
+  chrome.storage.session.get(key)
+    .then((stored) => {
+      const payload = /** @type {{src?: string, referer?: string} | undefined} */ (stored[key]);
+      if (!payload || !payload.src || !U.isAllowedFetch(payload.src, payload.referer || '')) {
+        throw new Error('That address is not allowed.');
+      }
+      return startOffscreenJob({ type: 'viewfetch', url: payload.src, pageUrl: payload.referer || '', token });
+    })
     .catch((e) => finish({ error: errorText(e) }));
   return true; // keep the message channel open for the async answer
 });

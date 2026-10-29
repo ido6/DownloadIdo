@@ -54,16 +54,17 @@ async function toOwnBlobUrl(url) {
   return URL.createObjectURL(await res.blob());
 }
 
-async function fetchWithReferer(url, referer) {
+/** Ask the service worker to fetch this tab's picture with the page's Referer (by token only). */
+async function fetchWithReferer(token) {
   const reply = await Promise.race([
-    chrome.runtime.sendMessage({ type: 'view-fetch', url, referer }),
+    chrome.runtime.sendMessage({ type: 'view-fetch', token }),
     new Promise((resolve) => setTimeout(() => resolve(null), FETCH_TIMEOUT_MS)),
   ]);
   if (!reply || reply.error) throw new Error((reply && reply.error) || 'The extension did not answer.');
   return toOwnBlobUrl(reply.url);
 }
 
-async function load(payload) {
+async function load(payload, token) {
   nameEl.textContent = stemOf(payload.src) || 'image';
   hostEl.textContent = hostOf(payload.src);
   let url = payload.src;
@@ -73,7 +74,7 @@ async function load(payload) {
     } catch (e) {
       // The site refused this page (it is not the image's own page): refetch with its Referer.
       try {
-        url = await fetchWithReferer(payload.src, payload.referer);
+        url = await fetchWithReferer(token);
       } catch (e2) {
         fail(`Could not load this picture (${(e2 && e2.message) || e2}). The site may have blocked it.`);
         return;
@@ -199,10 +200,11 @@ new ResizeObserver(() => {
   const key = `view:${token}`;
   const stored = await chrome.storage.session.get(key);
   const payload = /** @type {{src: string, referer?: string} | undefined} */ (stored[key]);
-  if (payload) chrome.storage.session.remove(key);
   if (!payload || !payload.src) {
     fail('The viewer request expired. Right-click the picture and choose View image again.');
     return;
   }
-  await load(payload);
+  // The entry stays until loading ends: the Referer fallback looks it up by token.
+  await load(payload, token);
+  chrome.storage.session.remove(key);
 })();
