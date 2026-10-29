@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>View image — DownloadIdo</title>
+<link rel="stylesheet" href="viewer.css">
+</head>
+<body>
+  <div id="stage">
+    <div id="status" class="loading" hidden>Loading…</div>
+    <img id="img" alt="" hidden>
+  </div>
+  <header id="bar" hidden>
+    <div id="info">
+      <span id="name"></span>
+      <span id="host"></span>
+    </div>
+    <div id="controls">
+      <button class="btn" id="zoom-out" title="Zoom out (−)">−</button>
+      <span id="zoom-label">100%</span>
+      <button class="btn" id="zoom-in" title="Zoom in (+)">+</button>
+      <button class="btn" id="fit" title="Fit to window (0)">Fit</button>
+      <button class="btn" id="full" title="Full screen (F)">⛶</button>
+    </div>
+  </header>
+  <p id="hint" hidden>Click to toggle full screen · double-click for actual size · wheel to zoom · Esc to exit</p>
+  <script src="viewer.js"></script>
+</body>
+</html>

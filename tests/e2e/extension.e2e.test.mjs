@@ -228,7 +228,7 @@ async function waitForDownloads(afterId, count) {
     session: Object.keys(await chrome.storage.session.get(null)),
     contexts: (await chrome.runtime.getContexts({})).map((c) => c.contextType),
     rules: (await chrome.declarativeNetRequest.getSessionRules()).length,
-    clickError: self.__clickError || '',
+    clickError: self.__clickError || "",
   })).catch((e) => String(e));
   throw new Error(`timed out waiting for ${count} download(s); got [${seen}]; notes ${JSON.stringify(await notes())}; state ${JSON.stringify(state)}`);
 }
@@ -302,9 +302,11 @@ async function waitForFrame(part) {
 
 // ------------------------------------------------------------------ menus
 
-test('both context menu items are registered', async () => {
+test('all context menu items are registered', async () => {
   const ok = await swEval(() => Promise.all([
     chrome.contextMenus.update('downloadido-one', {}),
+    chrome.contextMenus.update('downloadido-view', {}),
+    chrome.contextMenus.update('downloadido-mp3', {}),
     chrome.contextMenus.update('downloadido-all', {}),
   ]).then(() => true, (e) => String(e)));
   assert.equal(ok, true);
@@ -414,6 +416,80 @@ test('cross-origin hotlink-protected image is retried with the page Referer', as
   assert.equal(file, 'DownloadIdo/hot.jpg');
   assert.ok(sameBytes(inDl(file), path.join(mediaDir, 'hot.jpg')));
   console.log(`  (server rejected ${stats.hot403} referer-less request(s) before the fallback)`);
+});
+
+// ------------------------------------------------------------------ view
+
+/** The tab the "View image" menu item opened, once it exists. */
+async function waitForViewer() {
+  for (let i = 0; i < 100; i++) {
+    const viewer = ctx.pages().find((p) => p.url().includes('/viewer/viewer.html'));
+    if (viewer) return viewer;
+    await sleep(100);
+  }
+  throw new Error('viewer tab did not open');
+}
+
+/** Wait for the viewer's image to load and return its bytes. */
+async function viewerBytes(viewer) {
+  await viewer.waitForFunction(() => {
+    const el = document.getElementById('img');
+    return el && !el.hidden && el.complete && el.naturalWidth > 0;
+  }, null, { timeout: 15000 });
+  const b64 = await viewer.evaluate(async () => {
+    const el = document.getElementById('img');
+    const bytes = new Uint8Array(await (await fetch(el.src)).arrayBuffer());
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode(...bytes.subarray(i, i + 8192));
+    return btoa(bin);
+  });
+  return Buffer.from(b64, 'base64');
+}
+
+test('view image: plain picture opens in the viewer, nothing is downloaded', async () => {
+  await page.goto(`http://localhost:${port}/`);
+  await page.waitForLoadState('load');
+  const start = await maxDownloadId();
+  await rightClick('#plain');
+  await clickMenu('downloadido-view');
+  const viewer = await waitForViewer();
+  const bytes = await viewerBytes(viewer);
+  assert.ok(bytes.equals(fs.readFileSync(path.join(mediaDir, 'plain.png'))), 'viewer shows the same bytes');
+  assert.ok(await viewer.isVisible('#full'), 'full-screen button shown');
+  await viewer.close();
+  assert.equal(await maxDownloadId(), start, 'nothing was downloaded');
+});
+
+test('view image: hotlink-protected picture is shown via the Referer fallback', async () => {
+  const before403 = stats.hot403;
+  await rightClick('#hot');
+  await clickMenu('downloadido-view');
+  const viewer = await waitForViewer();
+  const bytes = await viewerBytes(viewer);
+  assert.ok(bytes.equals(fs.readFileSync(path.join(mediaDir, 'hot.jpg'))));
+  console.log(`  (server rejected ${stats.hot403 - before403} referer-less request(s) before the viewer fell back)`);
+  await viewer.close();
+});
+
+test('view image: page-generated (blob) picture is shown', async () => {
+  await rightClick('#blobimg');
+  await clickMenu('downloadido-view');
+  const viewer = await waitForViewer();
+  const bytes = await viewerBytes(viewer);
+  assert.ok(bytes.equals(fs.readFileSync(path.join(mediaDir, 'plain.png'))));
+  await viewer.close();
+});
+
+test('view image: a video gives a notice instead of a viewer', async () => {
+  const start = await maxDownloadId();
+  await notes();
+  await rightClick('#mp4');
+  await clickMenu('downloadido-view');
+  await sleep(1000);
+  assert.equal(await maxDownloadId(), start);
+  assert.ok(ctx.pages().every((p) => !p.url().includes('/viewer/viewer.html')), 'no viewer tab');
+  const [n] = await notes();
+  assert.deepEqual([n.title, n.message], ['Images only', 'Videos and audio can be downloaded, not viewed.']);
 });
 
 test('direct mp4 video downloads the original file, not the play-button sprite over it', async () => {

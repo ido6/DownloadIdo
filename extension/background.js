@@ -4,8 +4,10 @@ import { CONTENT_FILES, errorText, notify } from './sw/common.js';
 import { downloadAll, resumeBulk } from './sw/bulk.js';
 import { downloadMp3 } from './sw/mp3.js';
 import { downloadTarget } from './sw/target.js';
+import { viewTarget } from './sw/view.js';
 
 const MENU_ONE = 'downloadido-one';
+const MENU_VIEW = 'downloadido-view';
 const MENU_ALL = 'downloadido-all';
 const MENU_MP3 = 'downloadido-mp3';
 // Every context except the toolbar-icon menu ('action'), which has no page point to resolve.
@@ -16,6 +18,7 @@ const MENU_CONTEXTS = [C.PAGE, C.FRAME, C.SELECTION, C.LINK, C.EDITABLE, C.IMAGE
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({ id: MENU_ONE, title: 'Download image / video', contexts: MENU_CONTEXTS });
+    chrome.contextMenus.create({ id: MENU_VIEW, title: 'View image', contexts: MENU_CONTEXTS });
     chrome.contextMenus.create({ id: MENU_MP3, title: 'Download audio as MP3', contexts: MENU_CONTEXTS });
     chrome.contextMenus.create({ id: MENU_ALL, title: 'Download all images and videos on this page', contexts: MENU_CONTEXTS });
   });
@@ -34,12 +37,14 @@ async function injectIntoOpenTabs() {
 }
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  handleMenuClick(info, tab).catch((e) => notify('Download failed', errorText(e)));
+  handleMenuClick(info, tab).catch((e) =>
+    notify(info.menuItemId === MENU_VIEW ? 'Could not view' : 'Download failed', errorText(e)));
 });
 
 async function handleMenuClick(info, tab) {
   if (!tab || tab.id === undefined || tab.id < 0) return;
   if (info.menuItemId === MENU_ONE) return downloadTarget(info, tab);
+  if (info.menuItemId === MENU_VIEW) return viewTarget(info, tab);
   if (info.menuItemId === MENU_MP3) return downloadMp3(info, tab);
   if (info.menuItemId === MENU_ALL) return downloadAll(tab);
 }

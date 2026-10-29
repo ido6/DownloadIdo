@@ -350,5 +350,28 @@
     }
   }
 
-  globalThis.DownloadIdoContent = { isAlive, resolveTarget, collectAll, exportStream, startStreamMp3, fetchBlobUrl, clearMarker };
+  /**
+   * Read a page-owned blob: image's bytes as a data URL. The viewer tab can't use the page's
+   * blob URL (wrong origin), so the bytes cross over as text; big images are refused up front.
+   */
+  async function fetchBlobDataUrl(url, maxBytes) {
+    if (!String(url).startsWith('blob:')) return { error: 'not a blob URL' };
+    try {
+      const blob = await (await fetch(url)).blob();
+      if (blob.size > maxBytes) {
+        return { error: 'This image is too large to view directly. Use "Download image / video" instead.' };
+      }
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(/** @type {string} */ (reader.result));
+        reader.onerror = () => reject(new Error('The image could not be read.'));
+        reader.readAsDataURL(blob);
+      });
+      return { url: dataUrl };
+    } catch (e) {
+      return { error: String((e && e.message) || e) };
+    }
+  }
+
+  globalThis.DownloadIdoContent = { isAlive, resolveTarget, collectAll, exportStream, startStreamMp3, fetchBlobUrl, fetchBlobDataUrl, clearMarker };
 })();

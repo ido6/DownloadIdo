@@ -26,7 +26,7 @@ async function probeUrl(url, pageUrl) {
 }
 
 /** Swap a known resized image URL for its full-size original, if the original really exists. */
-async function preferFullSize(url, pageUrl) {
+export async function preferFullSize(url, pageUrl) {
   const full = U.fullSizeImageUrl(url);
   if (!full) return { url, ext: '' };
   const probe = await probeUrl(full, pageUrl);
@@ -116,18 +116,34 @@ chrome.downloads.onChanged.addListener(async (delta) => {
   const state = delta.state && delta.state.current;
   if (state !== 'complete' && state !== 'interrupted') return;
   if (state === 'interrupted') await Promise.allSettled([...starting]);
-  const retry = await takeRetry(delta.id);
-  if (!retry || state === 'complete') return;
-  const [item] = await chrome.downloads.search({ id: delta.id });
-  if (!item || !RETRYABLE_ERROR.test(item.error || '')) return;
-  // chrome.downloads requests can't get headers changed, but the offscreen document's fetches
-  // can: fetch there with the page's Referer, then save the result.
+  await retryIfRefused(delta.id);
+});
+
+/**
+ * If a download we registered for retry was refused by the server, fetch it again in the
+ * offscreen document with the page's Referer (chrome.downloads requests can't have their
+ * headers changed, the offscreen document's fetches can). Finished downloads just drop
+ * their entry; ones still running are left for onChanged.
+ */
+async function retryIfRefused(id) {
+  const [item] = await chrome.downloads.search({ id });
+  if (item && item.state === 'in_progress') return;
+  const retry = await takeRetry(id);
+  if (!retry || !item || item.state !== 'interrupted' || !RETRYABLE_ERROR.test(item.error || '')) return;
   try {
     await startOffscreenJob({ type: 'fetch', url: retry.url, filename: retry.filename, pageUrl: retry.pageUrl });
   } catch (e) {
     notify('Download blocked', `The site refused the file (${item.error}). ${errorText(e)}`);
   }
-});
+}
+
+// A worker that stops between a refusal and its retry loses that onChanged event, so a new
+// worker re-checks every retry entry still waiting in session storage.
+(async () => {
+  const stored = await chrome.storage.session.get(null);
+  const ids = Object.keys(stored).filter((k) => k.startsWith('retry:')).map((k) => Number(k.slice(6)));
+  for (const id of ids) await retryIfRefused(id);
+})().catch(() => {});
 
 onJobDone('fetch', async ({ job, url, error }) => {
   if (error) {

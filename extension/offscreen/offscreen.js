@@ -12,7 +12,7 @@ const REVOKE_AFTER_MS = 10 * 60 * 1000;
 const PROGRESS_STEP = 2; // percent
 const EXT_MIME = { mp4: 'video/mp4', m4a: 'audio/mp4', ts: 'video/mp2t', aac: 'audio/aac', mp3: 'audio/mpeg' };
 
-const JOBS = { hls: runHlsJob, fetch: runFetchJob, mp3: runMp3Job, hlsmp3: (job) => runHlsJob({ ...job, audioOnly: true }) };
+const JOBS = { hls: runHlsJob, fetch: runFetchJob, viewfetch: runFetchJob, mp3: runMp3Job, hlsmp3: (job) => runHlsJob({ ...job, audioOnly: true }) };
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const run = msg?.target === 'offscreen' && sender.id === chrome.runtime.id && JOBS[msg.type];

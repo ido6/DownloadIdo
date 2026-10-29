@@ -1,0 +1,109 @@
+/* Full-screen image viewer ("View image"): always-dark lightbox, independent of the UI theme. */
+:root {
+  color-scheme: dark;
+  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  --text: #f2efec;
+  --muted: #a29b95;
+  --chrome: rgba(28, 25, 23, 0.65);
+  --chrome-hover: rgba(56, 50, 46, 0.85);
+  --border: rgba(242, 239, 236, 0.22);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: #0b0a09;
+  color: var(--text);
+  overflow: hidden;
+}
+
+/* The stage centers whatever it holds and scrolls when the image is zoomed past the window.
+   margin:auto (not align/justify) keeps the start of an overflowing image reachable. */
+#stage {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  overflow: auto;
+  scrollbar-width: none;
+}
+#stage::-webkit-scrollbar { display: none; }
+
+#img {
+  margin: auto;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  cursor: zoom-in;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+#img.zoomed { max-width: none; max-height: none; }
+
+#status { margin: auto; color: var(--muted); padding: 0 24px; max-width: 62ch; text-align: center; }
+#status.error { color: #ff7a70; }
+
+#bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: linear-gradient(rgba(11, 10, 9, 0.85), rgba(11, 10, 9, 0));
+  pointer-events: none;
+}
+#bar > * { pointer-events: auto; }
+
+#info { display: flex; flex-direction: column; min-width: 0; }
+#name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#host { color: var(--muted); font-size: 12px; }
+
+#controls { display: flex; align-items: center; gap: 6px; }
+
+.btn {
+  border: 1px solid var(--border);
+  background: var(--chrome);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.btn:hover { background: var(--chrome-hover); }
+#zoom-label {
+  min-width: 3.5em;
+  text-align: center;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+#hint {
+  position: fixed;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(28, 25, 23, 0.55);
+  color: rgba(242, 239, 236, 0.6);
+  font-size: 12px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+:fullscreen #hint { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}

@@ -31,7 +31,12 @@ Needs Chrome 121 or later.
 stream has a separate audio track) and streaming players. MP3 sources are saved as-is, without
 re-encoding. Audio is converted in your browser; nothing is uploaded anywhere.
 
-A third menu item, **Download all images and videos on this page**, saves everything (images
+**View image** opens the right-clicked picture (the same full-size version a download would
+save) in a full-screen viewer tab without saving it: click for full screen, double-click for
+actual size, mouse wheel or +/- to zoom. Hotlink-protected pictures work too.
+(Contributed by Eran Sadgan.)
+
+A fourth menu item, **Download all images and videos on this page**, saves everything (images
 smaller than 64 px are skipped) into `Downloads/DownloadIdo/<site> <date time>/`.
 Streamed videos are skipped there; right-click each one instead.
 
@@ -83,6 +88,7 @@ npm test
   - `sw/mp3.js`: the MP3 menu item
   - `sw/settings.js`: settings (`chrome.storage.sync`)
   - `popup/`, `options/`, `ui/theme.css`: toolbar popup, settings page, shared styles
+  - `sw/view.js`, `viewer/`: "View image" and its viewer tab
 - `npm run typecheck`: `tsc` over the extension's JS (JSDoc and `@types/chrome`).
 - `npm run coverage`: coverage for `lib/`.
 - Unit tests: `tests/unit` (`node --test`).
